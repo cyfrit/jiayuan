@@ -1,0 +1,22 @@
+{
+  "books": [
+    {
+      "book_id": 1,
+      "title": "红楼梦",
+      "author": "曹雪芹",
+      "publication_date": "1791-01-01",
+      "entry_date": "2023-09-15",
+      "is_borrowed": true,
+      "borrower": "张三"
+    },
+    {
+      "book_id": 2,
+      "title": "三体",
+      "author": "刘慈欣",
+      "publication_date": "2008-01-01",
+      "entry_date": "2023-09-20",
+      "is_borrowed": false,
+      "borrower": "null"
+    }
+  ]
+}
