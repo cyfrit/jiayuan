@@ -30,7 +30,7 @@ type Books struct {
 // Claims 结构体
 type Claims struct {
 	Username string `json:"username"`
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }
 
 // 定义用于签名 JWT 的密钥
@@ -309,10 +309,11 @@ func login(username, password string) string {
 	expirationTime := time.Now().Add(5 * time.Minute)
 	claims := &Claims{
 		Username: loginInformation[0],
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: expirationTime.Unix(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
 		},
 	}
+
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(jwtKey)
