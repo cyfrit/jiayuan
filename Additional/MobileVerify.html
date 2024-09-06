@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+            box-sizing: border-box; /* 确保内边距包含在总宽度内 */
+        }
+
+        .container h1 {
+            margin-bottom: 20px;
+        }
+
+        .container label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .container input {
+            width: calc(70% - 20px); /* 减去内边距 */
+            padding: 10px;
+            margin: 0 0 20px 0; /* 确保没有外边距，并在底部增加间距 */
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box; /* 确保内边距和边框包含在总宽度内 */
+        }
+
+        .container button {
+            width: 40%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .container button:hover {
+            background-color: #0056b3;
+        }
+
+        .container p {
+            margin-top: 20px;
+            font-size: 16px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+            }
+        }
+    </style>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // 从URL中获取UUID参数
+            const urlParams = new URLSearchParams(window.location.search);
+            const uuid = urlParams.get('uuid');
+
+            if (!uuid) {
+                alert("没有找到UUID参数");
+                return;
+            }
+
+            // 处理按钮点击事件
+            document.getElementById("loginButton").addEventListener("click", function() {
+                const userId = document.getElementById("userIdInput").value;
+
+                if (!userId) {
+                    alert("请输入用户ID");
+                    return;
+                }
+                // 使用AJAX提交UUID和用户ID
+                const xhr = new XMLHttpRequest();
+                xhr.open("GET", `/do/qrcodeLogin?uuid=${uuid}&userid=${userId}`, true);
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            const response = JSON.parse(xhr.responseText);
+                            if (response.status === "ok") {
+                                document.getElementById("result").innerText = "登录成功";
+                                // 隐藏登录表单元素
+                                document.querySelector("h1").style.display = "none";
+                                document.querySelector("label[for='userIdInput']").style.display = "none";
+                                document.getElementById("userIdInput").style.display = "none";
+                                document.getElementById("loginButton").style.display = "none";
+                            } else {
+                                document.getElementById("result").innerText = "登录失败";
+                            }
+                        } else {
+                            document.getElementById("result").innerText = "请求失败";
+                        }
+                    }
+                };
+                xhr.send();
+            });
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>登录页面</h1>
+        <label for="userIdInput">用户ID:</label>
+        <input type="text" id="userIdInput" name="userId">
+        <button id="loginButton">登录</button>
+        <p id="result"></p>
+    </div>
+</body>
+</html>

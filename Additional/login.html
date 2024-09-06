@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二维码登录</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .container h1 {
+            margin-bottom: 20px;
+        }
+
+        .container label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .container input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .container button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .container button:hover {
+            background-color: #0056b3;
+        }
+
+        .container p {
+            margin-top: 20px;
+            font-size: 16px;
+        }
+
+        #logoutButton {
+            width: 40%;
+            display: none;
+            margin-top: 20px;
+            margin: auto;
+            background-color: #dc3545;
+        }
+
+        #logoutButton:hover {
+            background-color: #c82333;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="loginStatus">正在获取登录状态...</div>
+        <div id="qrcode"></div>
+        <button id="logoutButton" onclick="logout()">登出</button>
+    </div>
+
+    <script>
+        function getCookie(name) {
+            let match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+            if (match) return match[2];
+            return null;
+        }
+
+        function setCookie(name, value, days) {
+            let date = new Date();
+            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+            let expires = "expires=" + date.toUTCString();
+            document.cookie = name + "=" + value + ";" + expires + ";path=/";
+        }
+
+        function deleteCookie(name) {
+            document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        }
+
+        function checkLoginStatus() {
+            let token = getCookie('token');
+            console.log(token);
+            if (token) {
+                validateToken(token);
+            } else {
+                showLoginPrompt();
+            }
+        }
+
+        function validateToken(token) {
+            fetch(`/do/validateToken?token=${token}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    document.getElementById('loginStatus').innerText = '您已登录';
+                    document.getElementById('qrcode').style.display = 'none';
+                    document.getElementById('logoutButton').style.display = 'block';
+                } else {
+                    showLoginPrompt();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showLoginPrompt();
+            });
+        }
+
+        function showLoginPrompt() {
+            document.getElementById('loginStatus').innerText = '请登录';
+            fetch('/do/generateQRCode')
+            .then(response => response.json())
+            .then(data => {
+                let qrcodeImage = new Image();
+                qrcodeImage.src = 'data:image/png;base64,' + data.qrcode;
+                document.getElementById('qrcode').innerHTML = '';
+                document.getElementById('qrcode').appendChild(qrcodeImage);
+                pollLoginStatus(data.uuid);
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        function pollLoginStatus(uuid) {
+            let intervalId = setInterval(() => {
+                fetch(`/do/getStatus?uuid=${uuid}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        setCookie('token', data.token, 7);
+                        document.getElementById('loginStatus').innerText = '您已登录';
+                        document.getElementById('qrcode').innerHTML = '';
+                        document.getElementById('logoutButton').style.display = 'block';
+                        clearInterval(intervalId); // 停止轮询
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            }, 1000);
+        }
+
+        function logout() {
+            deleteCookie('token');
+            location.reload();
+        }
+
+        checkLoginStatus();
+    </script>
+</body>
+</html>
