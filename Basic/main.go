@@ -226,7 +226,7 @@ func main() {
 
 			indexToReturn := bookIDToReturn - 1
 
-			if booksData.Books[indexToReturn].IsBorrowed == false {
+			if !booksData.Books[indexToReturn].IsBorrowed {
 				fmt.Println("这本书未被借出，无需归还")
 				continue
 			}
