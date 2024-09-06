@@ -82,6 +82,9 @@
                 return;
             }
 
+            // 验证UUID
+            validateUuid(uuid);
+
             // 处理按钮点击事件
             document.getElementById("loginButton").addEventListener("click", function() {
                 const userId = document.getElementById("userIdInput").value;
@@ -115,6 +118,30 @@
                 xhr.send();
             });
         });
+
+        function validateUuid(uuid) {
+            fetch(`/do/validateUuid?uuid=${uuid}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status == 'fail') {
+                    // 隐藏输入框和按钮
+                    document.querySelector("h1").style.display = "none";
+                    document.querySelector("label[for='userIdInput']").style.display = "none";
+                    document.getElementById("userIdInput").style.display = "none";
+                    document.getElementById("loginButton").style.display = "none";
+                    document.getElementById("result").innerText = "UUID已失效";
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById("result").innerText = "验证UUID时出错";
+            });
+        }
     </script>
 </head>
 <body>

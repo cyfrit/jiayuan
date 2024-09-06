@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"context"
 	"os"
+	"strconv"
 	"strings"
 	"encoding/base64"
 	"encoding/json"
@@ -15,8 +17,6 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
-
-var serverHost string = "http://10.0.0.1:8080" 
 
 // 全局变量，用于存储 Snowflake 节点实例
 var node *snowflake.Node
@@ -35,6 +35,7 @@ type Claims struct {
 // 定义用于签名 JWT 的密钥
 var jwtKey = []byte("80BEB12D58BC822705B6000584249652")
 
+var url string = "http://"+ getHostIp() + ":8080"
 
 func init() {
 	// 初始化 Redis 客户端
@@ -75,9 +76,24 @@ func mobileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func qrcodeHandler(w http.ResponseWriter, r *http.Request) {
-	uuid := node.Generate().String()
+	uuid := r.URL.Query().Get("uuid")
 
-	qrcodeURL := serverHost + "/MobileVerify?uuid=" + uuid
+	parts, err := getParsedDataFromRedis(uuid)
+	if err != nil {
+		fmt.Println(err)
+		uuid = node.Generate().String() // 在 Redis 查询发生错误时生成新的 UUID
+	} else {
+		expireTimestamp := parts[2]
+		if isTimestampExpired(expireTimestamp) {
+			err = rdb.Del(ctx, uuid).Err()
+			if err != nil {
+				return
+			}
+			uuid = node.Generate().String() // 在过期时生成新的 UUID
+		}
+	}
+
+	qrcodeURL := url + "/MobileVerify?uuid=" + uuid
 
 	// 生成二维码，返回一个字节数组
 	png, err := qrcode.Encode(qrcodeURL, qrcode.Medium, 256)
@@ -107,20 +123,7 @@ func qrcodeHandler(w http.ResponseWriter, r *http.Request) {
 
 	content := string(jsonData)
 
-	// 当前时间戳
-	timestamp := time.Now().Unix()
-
-	// 拼接数据
-	dataToRedis := fmt.Sprintf("%s-%s-%d", uuid, "0", timestamp)
-
-	// 将数据写入 Redis
-	redisErr := rdb.Set(ctx, uuid, dataToRedis, 0).Err()
-	if redisErr != nil {
-		fmt.Println("Error setting value in Redis:", redisErr)
-		return
-	}
-
-	//为了方便，没有完善的错误处理
+	storeDataInRedis(uuid)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(content))
@@ -131,17 +134,9 @@ func qrcodeLoginHandler(w http.ResponseWriter, r *http.Request) {
 	uuid := r.URL.Query().Get("uuid")
 	userid := r.URL.Query().Get("userid")
 
-	// 从 Redis 中读取数据
-	val, err := rdb.Get(ctx, uuid).Result()
+	parts, err := getParsedDataFromRedis(uuid)
 	if err != nil {
-		fmt.Println("Error getting value from Redis:", err)
-		return
-	}
-
-	// 解析 Redis 中的数据
-	parts := strings.Split(val, "-")
-	if len(parts) != 3 {
-		fmt.Println("Invalid data format in Redis")
+		fmt.Println(err)
 		return
 	}
 
@@ -156,8 +151,6 @@ func qrcodeLoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//为了方便，没有完善的错误处理
-
 
 	content := `{"status": "ok"}`
 
@@ -168,31 +161,25 @@ func qrcodeLoginHandler(w http.ResponseWriter, r *http.Request) {
 func statusHandler(w http.ResponseWriter, r *http.Request) {
 	uuid := r.URL.Query().Get("uuid")
 
-	// 从 Redis 中读取数据
-	val, err := rdb.Get(ctx, uuid).Result()
+	parts, err := getParsedDataFromRedis(uuid)
 	if err != nil {
-		fmt.Println("Error getting value from Redis:", err)
+		fmt.Println(err)
 		return
 	}
-
-	// 解析 Redis 中的数据
-	parts := strings.Split(val, "-")
-	if len(parts) != 3 {
-		fmt.Println("Invalid data format in Redis")
-		return
-	}
-
 
 	var content string
 	if parts[1] != "0" {
 		token := login(parts[1])
 		content = `{"status": "ok", "token": "` + token + `"}`
 	} else {
-		content = `{"status": "fail"}`
+		content = `{"status": "fail", "msg": "userid not received"}`
 	}
 
-	// 为了方便，没有完善的错误处理
+	expireTimestamp := parts[2]
 
+	if isTimestampExpired(expireTimestamp) {
+		content = `{"status": "fail", "msg": "uuid has expired"}`
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(content))
@@ -208,16 +195,65 @@ func validateHandler(w http.ResponseWriter, r *http.Request) {
 		content = `{"status": "fail"}`
 	}
 
-	// 为了方便，没有完善的错误处理
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(content))
+}
 
+func getUuidHandler(w http.ResponseWriter, r *http.Request) {
+	uuid := node.Generate().String()
+
+	content := `{"uuid": ` + uuid + `}`
+
+	storeDataInRedis(uuid)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(content))
 }
 
+func validateUuidHandler(w http.ResponseWriter, r *http.Request) {
+	uuid := r.URL.Query().Get("uuid")
+	
+	parts, err := getParsedDataFromRedis(uuid)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	expireTimestamp := parts[2]
+
+	var content string
+	if isTimestampExpired(expireTimestamp) {
+		content = `{"status": "fail"}`
+		err = rdb.Del(ctx, uuid).Err()
+		if err != nil {
+			return
+		}
+	} else {
+		content = `{"status": "ok"}`
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(content))
+}
+
+func isTimestampExpired(expireTimestamp string) (bool) {
+	expireTime, err := strconv.ParseInt(expireTimestamp, 10, 64)
+	if err != nil {
+		return false
+	}
+
+	// 获取当前时间的Unix时间戳（以秒为单位）
+	currentTime := time.Now().Unix()
+
+	// 比较两个时间戳
+	if currentTime > expireTime {
+		return true
+	} else {
+		return false
+	}
+}
+
 func main() {
-
-
 	var err error
 	// 创建 Snowflake 节点实例
 	node, err = snowflake.NewNode(1)
@@ -233,9 +269,11 @@ func main() {
 	http.HandleFunc("/do/qrcodeLogin", qrcodeLoginHandler)
 	http.HandleFunc("/do/getStatus", statusHandler)
 	http.HandleFunc("/do/validateToken", validateHandler)
+	http.HandleFunc("/do/getUuid", getUuidHandler)
+	http.HandleFunc("/do/validateUuid", validateUuidHandler)
 
 	// 启动服务器，监听在 8080 端口
-	fmt.Println("Starting server at port 8080")
+	fmt.Println("Starting server at port 8080,you can use "+ url + "/login to visit.")
 	httpErr := http.ListenAndServe(":8080", nil)
 	if httpErr != nil {
 		fmt.Println("Error starting server:", httpErr)
@@ -285,4 +323,54 @@ func validateToken(tokenString string) bool {
 	}
 
 	return true
+}
+
+func getHostIp() string {
+	conn, err := net.Dial("udp", "119.29.29.29:53")
+	if err != nil {
+		fmt.Println("get current host ip err:", err)
+		return ""
+	}
+	defer conn.Close() 
+
+	addr, ok := conn.LocalAddr().(*net.UDPAddr)
+	if !ok {
+		fmt.Println("failed to get UDP address")
+		return ""
+	}
+
+	ip := strings.Split(addr.String(), ":")[0]
+	return ip
+}
+
+func getParsedDataFromRedis(uuid string) ([]string, error) {
+	// 从 Redis 中读取数据
+	val, err := rdb.Get(ctx, uuid).Result()
+	if err != nil {
+		return nil, fmt.Errorf("error getting value from Redis: %w. It is possible that the UUID has expired or is invalid", err)
+	}
+
+	// 解析 Redis 中的数据
+	parts := strings.Split(val, "-")
+	if len(parts) != 3 {
+		return nil, fmt.Errorf("invalid data format in Redis")
+	}
+
+	return parts, nil
+}
+
+func storeDataInRedis(uuid string) error {
+	// 当前时间戳
+	timestamp := time.Now().Unix() + 30
+
+	// 拼接数据
+	dataToRedis := fmt.Sprintf("%s-%s-%d", uuid, "0", timestamp)
+
+	// 将数据写入 Redis
+	redisErr := rdb.Set(ctx, uuid, dataToRedis, 0).Err()
+	if redisErr != nil {
+		return fmt.Errorf("error setting value in Redis: %w", redisErr)
+	}
+
+	return nil
 }
