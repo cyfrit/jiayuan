@@ -93,6 +93,11 @@
                     alert("请输入用户ID");
                     return;
                 }
+
+                if (userId === 0) {
+                    alert("非法用户ID");
+                    return;
+                }
                 // 使用AJAX提交UUID和用户ID
                 const xhr = new XMLHttpRequest();
                 xhr.open("GET", `/do/qrcodeLogin?uuid=${uuid}&userid=${userId}`, true);
@@ -107,7 +112,10 @@
                                 document.querySelector("label[for='userIdInput']").style.display = "none";
                                 document.getElementById("userIdInput").style.display = "none";
                                 document.getElementById("loginButton").style.display = "none";
-                            } else {
+                            } else if(response.msg === "uuid has expired") {
+                                hide();
+                            }
+                            else {
                                 document.getElementById("result").innerText = "登录失败";
                             }
                         } else {
@@ -129,18 +137,22 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status == 'fail') {
-                    // 隐藏输入框和按钮
-                    document.querySelector("h1").style.display = "none";
-                    document.querySelector("label[for='userIdInput']").style.display = "none";
-                    document.getElementById("userIdInput").style.display = "none";
-                    document.getElementById("loginButton").style.display = "none";
-                    document.getElementById("result").innerText = "UUID已失效";
+                    hide();
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                document.getElementById("result").innerText = "验证UUID时出错";
+                hide();
             });
+        }
+
+        function hide() {
+            // 隐藏输入框和按钮
+            document.querySelector("h1").style.display = "none";
+            document.querySelector("label[for='userIdInput']").style.display = "none";
+            document.getElementById("userIdInput").style.display = "none";
+            document.getElementById("loginButton").style.display = "none";
+            document.getElementById("result").innerText = "UUID已失效";
         }
     </script>
 </head>

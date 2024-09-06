@@ -11,7 +11,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"time"
-	qrcode  "github.com/skip2/go-qrcode"
+	qrcode  "github.com/skip2/go-qrcode" 
 	"github.com/bwmarrin/snowflake"
 	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt/v4"
@@ -133,26 +133,41 @@ func qrcodeHandler(w http.ResponseWriter, r *http.Request) {
 func qrcodeLoginHandler(w http.ResponseWriter, r *http.Request) {
 	uuid := r.URL.Query().Get("uuid")
 	userid := r.URL.Query().Get("userid")
+	
+	var content string
 
 	parts, err := getParsedDataFromRedis(uuid)
 	if err != nil {
 		fmt.Println(err)
-		return
+		content = `{"status": "fail","msg": "uuid has expired"}`
+	} else {
+		expireTimestamp := parts[2]
+		if isTimestampExpired(expireTimestamp) {
+			err = rdb.Del(ctx, uuid).Err()
+			if err != nil {
+				return
+			}
+			content = `{"status": "fail","msg": "uuid has expired"}` 
+			err = rdb.Del(ctx, uuid).Err()
+			if err != nil {
+				return
+			}
+		} else {
+			redisTimestamp := parts[2]
+
+			dataToRedis := fmt.Sprintf("%s-%s-%s", uuid, userid, redisTimestamp)
+		
+			// 将数据写入 Redis
+			redisErr := rdb.Set(ctx, uuid, dataToRedis, 0).Err()
+			if redisErr != nil {
+				fmt.Println("Error setting value in Redis:", redisErr)
+				return
+			}
+		
+		
+			content = `{"status": "ok"}`
+		}
 	}
-
-	redisTimestamp := parts[2]
-
-	dataToRedis := fmt.Sprintf("%s-%s-%s", uuid, userid, redisTimestamp)
-
-	// 将数据写入 Redis
-	redisErr := rdb.Set(ctx, uuid, dataToRedis, 0).Err()
-	if redisErr != nil {
-		fmt.Println("Error setting value in Redis:", redisErr)
-		return
-	}
-
-
-	content := `{"status": "ok"}`
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(content))
@@ -164,6 +179,9 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 	parts, err := getParsedDataFromRedis(uuid)
 	if err != nil {
 		fmt.Println(err)
+		content := `{"status": "fail", "msg": "uuid has expired"}`
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(content))
 		return
 	}
 
