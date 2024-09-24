@@ -1,22 +1,21 @@
 package main
 
 import (
-	"fmt"
-	"net"
-	"net/http"
 	"context"
-	"os"
-	"strconv"
-	"strings"
 	"encoding/base64"
 	"encoding/json"
-	"time"
-	qrcode  "github.com/skip2/go-qrcode" 
+	"fmt"
 	"github.com/bwmarrin/snowflake"
 	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt/v4"
+	qrcode "github.com/skip2/go-qrcode"
+	"net"
+	"net/http"
+	"os"
+	"strconv"
+	"strings"
+	"time"
 )
-
 
 // 全局变量，用于存储 Snowflake 节点实例
 var node *snowflake.Node
@@ -24,7 +23,6 @@ var (
 	ctx = context.Background()
 	rdb *redis.Client
 )
-
 
 // Claims 结构体
 type Claims struct {
@@ -35,7 +33,7 @@ type Claims struct {
 // 定义用于签名 JWT 的密钥
 var jwtKey = []byte("80BEB12D58BC822705B6000584249652")
 
-var url string = "http://"+ getHostIp() + ":8080"
+var url string = "http://" + getHostIp() + ":8080"
 
 func init() {
 	// 初始化 Redis 客户端
@@ -129,11 +127,10 @@ func qrcodeHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(content))
 }
 
-
 func qrcodeLoginHandler(w http.ResponseWriter, r *http.Request) {
 	uuid := r.URL.Query().Get("uuid")
 	userid := r.URL.Query().Get("userid")
-	
+
 	var content string
 
 	parts, err := getParsedDataFromRedis(uuid)
@@ -147,7 +144,7 @@ func qrcodeLoginHandler(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return
 			}
-			content = `{"status": "fail","msg": "uuid has expired"}` 
+			content = `{"status": "fail","msg": "uuid has expired"}`
 			err = rdb.Del(ctx, uuid).Err()
 			if err != nil {
 				return
@@ -156,15 +153,14 @@ func qrcodeLoginHandler(w http.ResponseWriter, r *http.Request) {
 			redisTimestamp := parts[2]
 
 			dataToRedis := fmt.Sprintf("%s-%s-%s", uuid, userid, redisTimestamp)
-		
+
 			// 将数据写入 Redis
 			redisErr := rdb.Set(ctx, uuid, dataToRedis, 0).Err()
 			if redisErr != nil {
 				fmt.Println("Error setting value in Redis:", redisErr)
 				return
 			}
-		
-		
+
 			content = `{"status": "ok"}`
 		}
 	}
@@ -230,7 +226,7 @@ func getUuidHandler(w http.ResponseWriter, r *http.Request) {
 
 func validateUuidHandler(w http.ResponseWriter, r *http.Request) {
 	uuid := r.URL.Query().Get("uuid")
-	
+
 	parts, err := getParsedDataFromRedis(uuid)
 	if err != nil {
 		fmt.Println(err)
@@ -254,7 +250,7 @@ func validateUuidHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(content))
 }
 
-func isTimestampExpired(expireTimestamp string) (bool) {
+func isTimestampExpired(expireTimestamp string) bool {
 	expireTime, err := strconv.ParseInt(expireTimestamp, 10, 64)
 	if err != nil {
 		return false
@@ -291,7 +287,7 @@ func main() {
 	http.HandleFunc("/do/validateUuid", validateUuidHandler)
 
 	// 启动服务器，监听在 8080 端口
-	fmt.Println("Starting server at port 8080,you can use "+ url + "/login to visit.")
+	fmt.Println("Starting server at port 8080,you can use " + url + "/login to visit.")
 	httpErr := http.ListenAndServe(":8080", nil)
 	if httpErr != nil {
 		fmt.Println("Error starting server:", httpErr)
@@ -349,7 +345,7 @@ func getHostIp() string {
 		fmt.Println("get current host ip err:", err)
 		return ""
 	}
-	defer conn.Close() 
+	defer conn.Close()
 
 	addr, ok := conn.LocalAddr().(*net.UDPAddr)
 	if !ok {

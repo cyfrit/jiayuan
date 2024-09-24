@@ -1,15 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"github.com/golang-jwt/jwt/v4"
 	"io/ioutil"
 	"os"
-	"bufio"
+	"strconv"
 	"strings"
 	"time"
-	"strconv"
-	"github.com/golang-jwt/jwt/v4"
 )
 
 // 定义与JSON结构对应的结构体
@@ -64,7 +64,7 @@ func main() {
 		fmt.Println("序列化 JSON 时出错:", err)
 		os.Exit(1)
 	}
-	
+
 	var tokenString string
 
 	//循环开始
@@ -192,7 +192,7 @@ func main() {
 			}
 		case "4":
 			//借阅
-			borrowInput:= input("请输入图书ID和借阅人（用空格分隔）：")
+			borrowInput := input("请输入图书ID和借阅人（用空格分隔）：")
 			borrowInformation := processDoubleInput(borrowInput)
 			bookIDToBorrow, _ := strconv.Atoi(borrowInformation[0])
 			// 检查ID是否有效
@@ -245,10 +245,10 @@ func main() {
 }
 
 func input(prompt string) string {
-    reader := bufio.NewReader(os.Stdin)
-    fmt.Print(prompt)
-    text, _ := reader.ReadString('\n')
-    return strings.TrimSpace(text)
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print(prompt)
+	text, _ := reader.ReadString('\n')
+	return strings.TrimSpace(text)
 }
 
 func processQueryInput(input string) []string {
@@ -313,7 +313,6 @@ func login(username, password string) string {
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 		},
 	}
-
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(jwtKey)
