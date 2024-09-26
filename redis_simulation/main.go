@@ -91,7 +91,6 @@ mainLoop:
 							fmt.Println("Set successfully")
 						}
 					}
-
 				case "SETNX":
 					if len(parts) != 3 {
 						fmt.Println("Invalid input,there should be 3 parameters")
