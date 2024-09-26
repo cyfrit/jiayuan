@@ -1,0 +1,9 @@
+SET Key value       (将键值存储起来）
+SETNX Key value    （如果键存在 返回 0 如果键不存在 返回 1 并存储值)
+GET Key            （获得对应键所对应的值）
+DEl Key            （删除所对应的键和值）
+
+SADD SetName value （向一个集合（SetName）中添加一个元素（value））
+SMEMBER SetName    （获取一个集合内的所有元素）
+
+EXIT               （退出程序）

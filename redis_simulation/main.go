@@ -17,150 +17,190 @@ func main() {
 		return
 	}
 
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		input := scanner.Text()
-		parts := strings.Split(input, " ")
-
-		if len(parts) < 1 {
-			fmt.Println("Invalid input")
-			continue
+	usage, err := os.Open("usage.txt")
+	defer func() {
+		if err := usage.Close(); err != nil {
+			fmt.Println("Error while closing usage.txt:", err)
 		}
-
-		command := strings.ToUpper(parts[0])
-
-		switch command {
-		case "SET":
-			if len(parts) != 3 {
-				fmt.Println("Invalid input,there should be 3 parameters,usage: SET Key Value")
-				continue
-			}
-
-			index, _ := findValue(data, parts[1])
-			if index != -1 {
-				data[index].Value = parts[2]
-				err = jsonExec.Update(data)
-				if err != nil {
-					fmt.Println("Error while updating json:", err)
-				}
-			} else {
-				newData := Data{
-					Key:   parts[1],
-					Value: parts[2],
-				}
-				data = append(data, newData)
-
-				err = jsonExec.Update(data)
-				if err != nil {
-					fmt.Println("Error while updating data:", err)
-				} else {
-					fmt.Println("Set successfully")
-				}
-			}
-
-		case "SETNX":
-			if len(parts) != 3 {
-				fmt.Println("Invalid input,there should be 3 parameters")
-				continue
-			}
-			index, value := findValue(data, parts[1])
-			if index != -1 {
-				fmt.Println("0")
-			} else {
-				newData := Data{
-					Key:   parts[1],
-					Value: value,
-				}
-				data = append(data, newData)
-
-				err = jsonExec.Update(data)
-				if err != nil {
-					fmt.Println("Error while updating data:", err)
-				} else {
-					fmt.Println("Set successfully")
-				}
-			}
-		case "GET", "SMEMBER":
-			if len(parts) != 2 {
-				fmt.Println("Invalid input,there should be 2 parameters")
-				continue
-			}
-			index, value := findValue(data, parts[1])
-			if index != -1 {
-				fmt.Println(value)
-			} else {
-				fmt.Println("Key not found")
-			}
-		case "DEL":
-			if len(parts) != 2 {
-				fmt.Println("Invalid input,there should be 2 parameters")
-				continue
-			}
-			index, _ := findValue(data, parts[1])
-			if index != -1 {
-				i := 0
-				for _, value := range data {
-					if value.Key != parts[1] {
-						data[i] = value
-						i++
-					}
-				}
-
-				data = data[:i]
-
-				err = jsonExec.Update(data)
-				if err != nil {
-					fmt.Println("Error while updating data:", err)
-				} else {
-					fmt.Println("Delete successfully")
-				}
-			} else {
-				fmt.Println("Key not found")
-			}
-		case "SADD":
-			if len(parts) != 3 {
-				fmt.Println("Invalid input,there should be 3 parameters,usage: SET Key Value")
-				continue
-			}
-
-			index, valueStr := findValue(data, parts[1])
-			if index != -1 {
-				// 这里没办法了，被转 json 搞吐了
-				sliceMap := stringToSlice(valueStr, ",")
-				valueSet := sliceToSet(sliceMap)
-				valueSet.Add(parts[2])
-				newSliceMap := setToSlice(valueSet)
-				newStrMap := sliceToString(newSliceMap, ",")
-
-				data[index].Value = newStrMap
-				err = jsonExec.Update(data)
-				if err != nil {
-					fmt.Println("Error while updating data:", err)
-				}
-				fmt.Println("Set successfully")
-			} else {
-				valueSet := NewSet()
-				valueSet.Add(parts[2])
-				sliceMap := setToSlice(valueSet)
-				strMap := sliceToString(sliceMap, ",")
-				newData := Data{
-					Key:   parts[1],
-					Value: strMap,
-				}
-				data = append(data, newData)
-
-				err = jsonExec.Update(data)
-				if err != nil {
-					fmt.Println("Error while updating data:", err)
-				} else {
-					fmt.Println("Set successfully")
-				}
-			}
-		default:
-			fmt.Println("Error command")
-		}
+	}()
+	if err != nil {
+		fmt.Println("Error while opening usage.txt")
+		return
 	}
 
+	content, err := io.ReadAll(usage)
+	if err != nil {
+		fmt.Println("Error while reading usage.txt")
+	}
+	usageStr := string(content)
+
+	fmt.Println("1.Enter cli\n2.Instructions for use\n3.Exit")
+
+	startScanner := bufio.NewScanner(os.Stdin)
+mainLoop:
+	for startScanner.Scan() {
+		initInput := startScanner.Text()
+
+		switch initInput {
+		case "1":
+			fmt.Println("Welcome to cli")
+			scanner := bufio.NewScanner(os.Stdin)
+		cliLoop:
+			for scanner.Scan() {
+				input := scanner.Text()
+				parts := strings.Split(input, " ")
+
+				if len(parts) < 1 {
+					fmt.Println("Invalid input")
+					continue
+				}
+
+				command := strings.ToUpper(parts[0])
+
+				switch command {
+				case "SET":
+					if len(parts) != 3 {
+						fmt.Println("Invalid input,there should be 3 parameters,usage: SET Key Value")
+						continue
+					}
+
+					index, _ := findValue(data, parts[1])
+					if index != -1 {
+						data[index].Value = parts[2]
+						err = jsonExec.Update(data)
+						if err != nil {
+							fmt.Println("Error while updating json:", err)
+						}
+					} else {
+						newData := Data{
+							Key:   parts[1],
+							Value: parts[2],
+						}
+						data = append(data, newData)
+
+						err = jsonExec.Update(data)
+						if err != nil {
+							fmt.Println("Error while updating data:", err)
+						} else {
+							fmt.Println("Set successfully")
+						}
+					}
+
+				case "SETNX":
+					if len(parts) != 3 {
+						fmt.Println("Invalid input,there should be 3 parameters")
+						continue
+					}
+					index, value := findValue(data, parts[1])
+					if index != -1 {
+						fmt.Println("0")
+					} else {
+						newData := Data{
+							Key:   parts[1],
+							Value: value,
+						}
+						data = append(data, newData)
+
+						err = jsonExec.Update(data)
+						if err != nil {
+							fmt.Println("Error while updating data:", err)
+						} else {
+							fmt.Println("Set successfully")
+						}
+					}
+				case "GET", "SMEMBER":
+					if len(parts) != 2 {
+						fmt.Println("Invalid input,there should be 2 parameters")
+						continue
+					}
+					index, value := findValue(data, parts[1])
+					if index != -1 {
+						fmt.Println(value)
+					} else {
+						fmt.Println("Key not found")
+					}
+				case "DEL":
+					if len(parts) != 2 {
+						fmt.Println("Invalid input,there should be 2 parameters")
+						continue
+					}
+					index, _ := findValue(data, parts[1])
+					if index != -1 {
+						i := 0
+						for _, value := range data {
+							if value.Key != parts[1] {
+								data[i] = value
+								i++
+							}
+						}
+
+						data = data[:i]
+
+						err = jsonExec.Update(data)
+						if err != nil {
+							fmt.Println("Error while updating data:", err)
+						} else {
+							fmt.Println("Delete successfully")
+						}
+					} else {
+						fmt.Println("Key not found")
+					}
+				case "SADD":
+					if len(parts) != 3 {
+						fmt.Println("Invalid input,there should be 3 parameters,usage: SET Key Value")
+						continue
+					}
+
+					index, valueStr := findValue(data, parts[1])
+					if index != -1 {
+						// 这里没办法了，被转 json 搞吐了
+						sliceMap := stringToSlice(valueStr, ",")
+						valueSet := sliceToSet(sliceMap)
+						valueSet.Add(parts[2])
+						newSliceMap := setToSlice(valueSet)
+						newStrMap := sliceToString(newSliceMap, ",")
+
+						data[index].Value = newStrMap
+						err = jsonExec.Update(data)
+						if err != nil {
+							fmt.Println("Error while updating data:", err)
+						}
+						fmt.Println("Set successfully")
+					} else {
+						valueSet := NewSet()
+						valueSet.Add(parts[2])
+						sliceMap := setToSlice(valueSet)
+						strMap := sliceToString(sliceMap, ",")
+						newData := Data{
+							Key:   parts[1],
+							Value: strMap,
+						}
+						data = append(data, newData)
+
+						err = jsonExec.Update(data)
+						if err != nil {
+							fmt.Println("Error while updating data:", err)
+						} else {
+							fmt.Println("Set successfully")
+						}
+					}
+				case "EXIT":
+					fmt.Println("Goodbye")
+					break cliLoop
+				default:
+					fmt.Println("Unknown command")
+				}
+			}
+		case "2":
+			fmt.Println(usageStr)
+		case "3":
+			fmt.Println("Bye")
+			break mainLoop
+		default:
+			fmt.Println("Unknown command")
+		}
+
+	}
 }
 
 func findValue(data []Data, key string) (int, string) {
