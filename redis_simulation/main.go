@@ -7,10 +7,7 @@ import (
 	"io"
 	"os"
 	"strings"
-	"time"
 )
-
-const validTime = 120
 
 func main() {
 	jsonExec := &JSONExec{"db.json"}
@@ -67,20 +64,17 @@ mainLoop:
 						continue
 					}
 
-					timestamp := time.Now().Unix()
-					index, _, _ := findValue(data, parts[1])
+					index, _ := findValue(data, parts[1])
 					if index != -1 {
 						data[index].Value = parts[2]
-						data[index].Timestamp = timestamp
 						err = jsonExec.Update(data)
 						if err != nil {
 							fmt.Println("Error while updating json:", err)
 						}
 					} else {
 						newData := Data{
-							Key:       parts[1],
-							Value:     parts[2],
-							Timestamp: timestamp,
+							Key:   parts[1],
+							Value: parts[2],
 						}
 						data = append(data, newData)
 
@@ -97,15 +91,13 @@ mainLoop:
 						fmt.Println("Invalid input,there should be 3 parameters")
 						continue
 					}
-					timestamp := time.Now().Unix()
-					index, value, _ := findValue(data, parts[1])
+					index, value := findValue(data, parts[1])
 					if index != -1 {
 						fmt.Println("0")
 					} else {
 						newData := Data{
-							Key:       parts[1],
-							Value:     value,
-							Timestamp: timestamp,
+							Key:   parts[1],
+							Value: value,
 						}
 						data = append(data, newData)
 
@@ -121,27 +113,9 @@ mainLoop:
 						fmt.Println("Invalid input,there should be 2 parameters")
 						continue
 					}
-					index, value, timestamp := findValue(data, parts[1])
+					index, value := findValue(data, parts[1])
 					if index != -1 {
-						if timestamp+validTime > time.Now().Unix() || timestamp == -1 {
-							fmt.Println(value)
-						} else {
-							i := 0
-							for _, value := range data {
-								if value.Key != parts[1] {
-									data[i] = value
-									i++
-								}
-							}
-							data = data[:i]
-
-							err = jsonExec.Update(data)
-							if err != nil {
-								fmt.Println("Error while updating data:", err)
-							} else {
-								fmt.Println("Data has expired")
-							}
-						}
+						fmt.Println(value)
 					} else {
 						fmt.Println("Key not found")
 					}
@@ -150,7 +124,7 @@ mainLoop:
 						fmt.Println("Invalid input,there should be 2 parameters")
 						continue
 					}
-					index, _, _ := findValue(data, parts[1])
+					index, _ := findValue(data, parts[1])
 					if index != -1 {
 						i := 0
 						for _, value := range data {
@@ -177,7 +151,7 @@ mainLoop:
 						continue
 					}
 
-					index, valueStr, _ := findValue(data, parts[1])
+					index, valueStr := findValue(data, parts[1])
 					if index != -1 {
 						// 这里没办法了，被转 json 搞吐了
 						sliceMap := stringToSlice(valueStr, ",")
@@ -198,9 +172,8 @@ mainLoop:
 						sliceMap := setToSlice(valueSet)
 						strMap := sliceToString(sliceMap, ",")
 						newData := Data{
-							Key:       parts[1],
-							Value:     strMap,
-							Timestamp: -1,
+							Key:   parts[1],
+							Value: strMap,
 						}
 						data = append(data, newData)
 
@@ -230,19 +203,18 @@ mainLoop:
 	}
 }
 
-func findValue(data []Data, key string) (int, string, int64) {
+func findValue(data []Data, key string) (int, string) {
 	for index, singleData := range data {
 		if singleData.Key == key {
-			return index, singleData.Value, singleData.Timestamp
+			return index, singleData.Value
 		}
 	}
-	return -1, "", 0
+	return -1, ""
 }
 
 type Data struct {
-	Key       string `json:"key"`
-	Value     string `json:"value"`
-	Timestamp int64  `json:"timestamp"`
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 type JSONExec struct {

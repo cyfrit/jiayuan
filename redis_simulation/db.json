@@ -1,17 +1,6 @@
 [
   {
     "key": "good",
-    "value": "bye",
-    "timestamp": 1
-  },
-  {
-    "key": "fuck",
-    "value": "you",
-    "timestamp": 1727314608
-  },
-  {
-    "key": "you",
-    "value": "123",
-    "timestamp": -1
+    "value": "bye"
   }
 ]
