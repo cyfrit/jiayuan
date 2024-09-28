@@ -73,7 +73,7 @@ function render() {
     }
 }
 
-function move(direction) {
+function move(mat, direction) {
     if (direction === 'w') {
         for (let col = 0; col < mat[0].length; col++) {
             let merged = Array(mat.length).fill(false);
@@ -165,7 +165,7 @@ function checkWin() {
     for (let row = 0; row < mat.length; row++) {
         for (let col = 0; col < mat[row].length; col++) {
             if (mat[row][col] === 2048) {
-                if (confirm('你赢了！冲洗开始新游戏？')) {
+                if (confirm('你赢了！重新开始新游戏？')) {
                     resetGame();
                 }
                 return;
@@ -210,7 +210,7 @@ document.addEventListener('keydown', (event) => {
     };
     const direction = keyMap[event.key];
     if (direction && canMove(mat, direction)) {
-        move(direction);
+        move(mat, direction);
         addRandomNumber();
         render();
         checkWin();
@@ -218,6 +218,109 @@ document.addEventListener('keydown', (event) => {
     }
 });
 
+
+
+function evaluate(mat) {
+    let emptyCells = 0;
+    let mergeScore = 0;
+    let maxTile = 0;
+    let maxTilePosition = [0, 0];
+    const positionWeightCoefficient = 5; // 调整这个系数以改变最大数位置的权重
+
+    for (let row = 0; row < mat.length; row++) {
+        for (let col = 0; col < mat[row].length; col++) {
+            if (mat[row][col] === 0) {
+                emptyCells++;
+            } else {
+                if (mat[row][col] > maxTile) {
+                    maxTile = mat[row][col];
+                    maxTilePosition = [row, col];
+                }
+                if (row > 0 && mat[row][col] === mat[row - 1][col]) mergeScore++;
+                if (col > 0 && mat[row][col] === mat[row][col - 1]) mergeScore++;
+            }
+        }
+    }
+
+    // 计算最大数位置权重
+    const [maxRow, maxCol] = maxTilePosition;
+    const positionWeight = (maxRow === 0 || maxRow === mat.length - 1 ? 1 : 0.5) +
+        (maxCol === 0 || maxCol === mat[0].length - 1 ? 1 : 0.5);
+
+    return emptyCells + mergeScore + positionWeightCoefficient * positionWeight * maxTile;
+}
+
+function minimax(mat, depth, isMaximizing) {
+    if (depth === 0) {
+        return evaluate(mat);
+    }
+
+    if (isMaximizing) {
+        let maxEval = -Infinity;
+        const directions = ['w', 's', 'a', 'd'];
+
+        for (const direction of directions) {
+            if (canMove(mat, direction)) {
+                const newMat = JSON.parse(JSON.stringify(mat));
+                move(newMat, direction);
+                const eval = minimax(newMat, depth - 1, false);
+                maxEval = Math.max(maxEval, eval);
+            }
+        }
+
+        return maxEval;
+    } else {
+        let minEval = Infinity;
+
+        for (let row = 0; row < mat.length; row++) {
+            for (let col = 0; col < mat[row].length; col++) {
+                if (mat[row][col] === 0) {
+                    const newMat = JSON.parse(JSON.stringify(mat));
+                    newMat[row][col] = Math.random() < 0.9 ? 2 : 4;
+                    const eval = minimax(newMat, depth - 1, true);
+                    minEval = Math.min(minEval, eval);
+                }
+            }
+        }
+
+        return minEval;
+    }
+}
+
+function findBestMove(mat) {
+    let bestMove = null;
+    let bestValue = -Infinity;
+    const directions = ['w', 's', 'a', 'd'];
+
+    for (const direction of directions) {
+        if (canMove(mat, direction)) {
+            const newMat = JSON.parse(JSON.stringify(mat));
+            move(newMat, direction);
+            const moveValue = minimax(newMat, 3, false);
+
+            if (moveValue > bestValue) {
+                bestValue = moveValue;
+                bestMove = direction;
+            }
+        }
+    }
+
+    return bestMove;
+}
+
+
 window.onload = () => {
     initializeGame();
+
+    function aiMove() {
+        const bestMove = findBestMove(mat);
+        if (bestMove) {
+            move(mat, bestMove);
+            addRandomNumber();
+            render();
+            checkWin();
+            checkGameOver();
+        }
+    }
+    setInterval(aiMove, 10);
 };
